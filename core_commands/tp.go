@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/dynamitemc/dynamite/server/commands"
+	"github.com/dynamitemc/dynamite/server/lang/placeholder"
 	"github.com/dynamitemc/dynamite/server/player"
 )
 
@@ -31,14 +32,14 @@ var tp_cmd = &commands.Command{
 					exe.Teleport(x, y, z, yaw, pitch)
 					ep, es := exe.GetPrefixSuffix()
 					pp, ps := player.GetPrefixSuffix()
-					ctx.Reply(srv.Lang.Translate("commands.teleport.success.entity.single", map[string]string{
+					ctx.Reply(srv.Lang.Translate("commands.teleport.success.entity.single", placeholder.New(map[string]string{
 						"player":         exe.Name(),
 						"player_prefix":  ep,
 						"player_suffx":   es,
 						"player1":        player.Name(),
 						"player1_prefix": pp,
 						"player1_suffx":  ps,
-					}))
+					})))
 				}
 			}
 		case 2:
@@ -52,14 +53,14 @@ var tp_cmd = &commands.Command{
 
 				ep, es := player1.GetPrefixSuffix()
 				pp, ps := player2.GetPrefixSuffix()
-				ctx.Reply(srv.Lang.Translate("commands.teleport.success.entity.single", map[string]string{
+				ctx.Reply(srv.Lang.Translate("commands.teleport.success.entity.single", placeholder.New(map[string]string{
 					"player":         player1.Name(),
 					"player_prefix":  ep,
 					"player_suffx":   es,
 					"player1":        player2.Name(),
 					"player1_prefix": pp,
 					"player1_suffx":  ps,
-				}))
+				})))
 			}
 		case 3:
 			{
@@ -87,7 +88,7 @@ var tp_cmd = &commands.Command{
 					exe.Teleport(x, y, z, yaw, pitch)
 
 					prefix, suffix := exe.GetPrefixSuffix()
-					ctx.Reply(srv.Lang.Translate("commands.teleport.success.location.single",
+					ctx.Reply(srv.Lang.Translate("commands.teleport.success.location.single", placeholder.New(
 						map[string]string{
 							"player":        exe.Name(),
 							"player_prefix": prefix,
@@ -95,7 +96,7 @@ var tp_cmd = &commands.Command{
 							"x":             fmt.Sprint(x),
 							"y":             fmt.Sprint(y),
 							"z":             fmt.Sprint(z),
-						}))
+						})))
 				}
 			}
 		case 4:
@@ -122,7 +123,7 @@ var tp_cmd = &commands.Command{
 				player.Teleport(x, y, z, yaw, pitch)
 
 				prefix, suffix := player.GetPrefixSuffix()
-				ctx.Reply(srv.Lang.Translate("commands.teleport.success.location.single",
+				ctx.Reply(srv.Lang.Translate("commands.teleport.success.location.single", placeholder.New(
 					map[string]string{
 						"player":        player.Name(),
 						"player_prefix": prefix,
@@ -130,7 +131,7 @@ var tp_cmd = &commands.Command{
 						"x":             fmt.Sprint(x),
 						"y":             fmt.Sprint(y),
 						"z":             fmt.Sprint(z),
-					}))
+					})))
 			}
 		default:
 			ctx.Incomplete()

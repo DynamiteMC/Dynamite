@@ -32,12 +32,7 @@ var kill_cmd = &commands.Command{
 		}
 		name := pl.Name()
 		pl.Kill(name + " was killed")
-		prefix, suffix := pl.GetPrefixSuffix()
-		ctx.Reply(pl.Server.(*server.Server).Lang.Translate("commands.kill.success.single", map[string]string{
-			"player":        pl.Name(),
-			"player_prefix": prefix,
-			"player_suffx":  suffix,
-		}))
+		ctx.Reply(pl.Server.(*server.Server).Lang.Translate("commands.kill.success.single", pl.PlaceholderContext))
 		pl.Server.(*server.Server).GlobalMessage(chat.NewMessage(name + " was killed"))
 	},
 }

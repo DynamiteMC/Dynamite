@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/dynamitemc/dynamite/server/block"
+	"github.com/dynamitemc/dynamite/server/lang/placeholder"
 
 	"github.com/dynamitemc/dynamite/server/block/pos"
 	"github.com/dynamitemc/dynamite/server/config"
@@ -90,6 +91,11 @@ func New(cfg *config.Config, address string, logger *logger.Logger, commandGraph
 		Entities:     controller.New[int32, entity.Entity](),
 		commandGraph: commandGraph,
 		Lang:         lang.New("lang.json"),
+		PlaceholderContext: placeholder.New(map[string]string{
+			"server_host":        cfg.ServerIP,
+			"server_port":        fmt.Sprint(cfg.ServerPort),
+			"server_max_players": fmt.Sprint(cfg.MaxPlayers),
+		}),
 	}
 	w.Overworld().SetGenerator(&overworld.DefaultGenerator{})
 
@@ -107,6 +113,8 @@ type Server struct {
 	commandGraph *commands.Graph
 
 	Lang *lang.Lang
+
+	PlaceholderContext *placeholder.PlaceholderContext
 
 	WhitelistedPlayers,
 	Operators,
@@ -154,6 +162,7 @@ func (srv *Server) handleNewConn(conn *minecraft.Conn) {
 		srv,
 		srv.Config,
 		srv.Lang,
+		srv.PlaceholderContext,
 		srv.Logger,
 		idCounter.Add(1),
 		conn,
@@ -182,11 +191,10 @@ func (srv *Server) handleNewConn(conn *minecraft.Conn) {
 	plyr.IntitializeData()
 
 	if err := srv.handlePackets(plyr); err != nil {
-		srv.Players.Delete(plyr.UUID())
-		prefix, suffix := plyr.GetPrefixSuffix()
 		srv.Logger.Info("[%s] Player %s (%s) has left the server", conn.RemoteAddr().String(), conn.Name(), plyr.UUID())
 
-		srv.GlobalMessage(srv.Lang.Translate("player.leave", map[string]string{"player": plyr.Name(), "player_prefix": prefix, "player_suffix": suffix}))
+		srv.GlobalMessage(srv.Lang.Translate("player.leave", plyr.PlaceholderContext))
+		srv.Players.Delete(plyr.UUID())
 		plyr.Save()
 		srv.playerlistRemove(conn.UUID())
 		plyr.Despawn()
@@ -244,9 +252,8 @@ func (srv *Server) addPlayer(p *player.Player) {
 	if srv.Config.Web.Enable {
 		web.AddPlayer(p.Name(), p.UUID().String())
 	}
-	prefix, suffix := p.GetPrefixSuffix()
 
-	srv.GlobalMessage(srv.Lang.Translate("player.join", map[string]string{"player": p.Name(), "player_prefix": prefix, "player_suffix": suffix}))
+	srv.GlobalMessage(srv.Lang.Translate("player.join", p.PlaceholderContext))
 }
 
 func (srv *Server) handlePackets(p *player.Player) error {

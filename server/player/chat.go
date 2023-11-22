@@ -8,6 +8,7 @@ import (
 	"github.com/aimjel/minecraft/chat"
 	"github.com/aimjel/minecraft/packet"
 	"github.com/dynamitemc/dynamite/server/enum"
+	"github.com/dynamitemc/dynamite/server/lang/placeholder"
 
 	"github.com/google/uuid"
 )
@@ -61,14 +62,7 @@ func (p *Player) HandleChat(pk *packet.ChatMessageServer) {
 				return true
 			})
 		} else {
-			msg := p.lang.ParsePlaceholders(p.config.Chat.Format, map[string]string{
-				"player":        p.Name(),
-				"player_prefix": prefix,
-				"player_suffix": suffix,
-				"message":       pk.Message,
-			})
-
-			globalMessage(p.logger, p.playerController, msg)
+			globalMessage(p.logger, p.playerController, chat.NewMessage(placeholder.New(map[string]string{"message": pk.Message}, p.PlaceholderContext).Parse(p.config.Chat.Format)))
 		}
 	} else {
 		p.logger.Print(chat.Message{

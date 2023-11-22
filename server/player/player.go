@@ -20,6 +20,7 @@ import (
 	"github.com/dynamitemc/dynamite/server/inventory"
 	"github.com/dynamitemc/dynamite/server/item"
 	"github.com/dynamitemc/dynamite/server/lang"
+	"github.com/dynamitemc/dynamite/server/lang/placeholder"
 	"github.com/dynamitemc/dynamite/server/permission"
 	"github.com/dynamitemc/dynamite/server/registry"
 	"github.com/dynamitemc/dynamite/server/session"
@@ -59,10 +60,11 @@ type clientInfo struct {
 }
 
 type Player struct {
-	Server any
-	config *config.Config
-	lang   *lang.Lang
-	logger *logger.Logger
+	Server             any
+	config             *config.Config
+	lang               *lang.Lang
+	PlaceholderContext *placeholder.PlaceholderContext
+	logger             *logger.Logger
 
 	playerController *controller.Controller[uuid.UUID, *Player]
 	entityController *controller.Controller[int32, entity.Entity]
@@ -89,7 +91,7 @@ type Player struct {
 
 	clientInfo clientInfo
 
-	Position         epos.EntityPosition
+	Position         *epos.EntityPosition
 	operator, flying *atomic.Bool
 	highestY         float64
 
@@ -128,6 +130,7 @@ func New(
 	server any,
 	config *config.Config,
 	lang *lang.Lang,
+	ph *placeholder.PlaceholderContext,
 	logger *logger.Logger,
 	entityId int32,
 	session session.Session,
@@ -159,9 +162,18 @@ func New(
 		health:           data.Health,
 		foodSaturation:   data.FoodSaturationLevel,
 		newID:            newID,
+		Position:         epos.NewEntityPosition(),
 	}
 	pl.Position.SetAll(data.Pos[0], data.Pos[1], data.Pos[2], data.Rotation[0], data.Rotation[1], data.OnGround)
 	pl.clientInfo.ViewDistance = vd
+
+	prefix, suffix := pl.GetPrefixSuffix()
+
+	pl.PlaceholderContext = placeholder.New(map[string]string{
+		"player":        pl.Name(),
+		"player_prefix": prefix,
+		"player_suffix": suffix,
+	}, ph)
 
 	return pl
 }

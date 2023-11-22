@@ -2,6 +2,7 @@ package core_commands
 
 import (
 	"github.com/dynamitemc/dynamite/server/commands"
+	"github.com/dynamitemc/dynamite/server/lang/placeholder"
 )
 
 var unban_cmd = &commands.Command{
@@ -20,8 +21,8 @@ var unban_cmd = &commands.Command{
 		server := getServer(ctx.Executor)
 
 		server.Unban(playerName)
-		ctx.Reply(server.Lang.Translate("commands.pardon.success", map[string]string{
+		ctx.Reply(server.Lang.Translate("commands.pardon.success", placeholder.New(map[string]string{
 			"player": playerName,
-		}))
+		}, server.PlaceholderContext)))
 	},
 }

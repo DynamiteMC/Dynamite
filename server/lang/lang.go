@@ -3,9 +3,9 @@ package lang
 import (
 	"encoding/json"
 	"os"
-	"strings"
 
 	"github.com/aimjel/minecraft/chat"
+	"github.com/dynamitemc/dynamite/server/lang/placeholder"
 )
 
 type Lang struct {
@@ -21,19 +21,12 @@ func New(path string) *Lang {
 	return l
 }
 
-func (lang *Lang) Translate(msg string, data map[string]string) chat.Message {
+func (lang *Lang) Translate(msg string, ctx *placeholder.PlaceholderContext) chat.Message {
 	txt, ok := lang.messages[msg]
 	if !ok {
 		return chat.NewMessage(msg)
 	}
-	return lang.ParsePlaceholders(txt, data)
-}
-
-func (lang *Lang) ParsePlaceholders(txt string, data map[string]string) chat.Message {
-	for k, v := range data {
-		txt = strings.ReplaceAll(txt, "%"+k+"%", v)
-	}
-	return chat.NewMessage(txt)
+	return chat.NewMessage(ctx.Parse(txt))
 }
 
 func loadLang(p string, data *map[string]string) error {
