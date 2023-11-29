@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/aimjel/minecraft/packet"
+	"github.com/dynamitemc/dynamite/logger"
 	"github.com/dynamitemc/dynamite/server/entity/pos"
 	"github.com/dynamitemc/dynamite/server/enum"
 	"github.com/google/uuid"
@@ -26,24 +27,28 @@ func (p *Player) handleCenterChunk(oldx, oldz, newx, newz float64) {
 
 func (p *Player) HandleMovement(packetid int32, x1, y1, z1 float64, ya, pi float32, ong bool, teleport bool) {
 	oldx, oldy, oldz := p.Position.X(), p.Position.Y(), p.Position.Z()
-	p.Position.SetAll(x1, y1, z1, ya, pi, ong)
+	p.Position.SetPosition(x1, y1, z1)
+	p.Position.SetRotation(ya, pi)
+	p.Position.SetOnGround(ong)
 	p.handleCenterChunk(oldx, oldy, x1, y1)
-	if y1 > p.HighestY() {
-		p.SetHighestY(y1)
+	if y1 > p.HighestY.Get() {
+		p.HighestY.Set(y1)
 	} else {
-		if g := p.GameMode(); g == enum.GameModeSurvival || g == enum.GameModeAdventure {
-			d := p.HighestY() - y1
+		if g := p.GameMode.Get(); g == enum.GameModeSurvival || g == enum.GameModeAdventure {
+			d := p.HighestY.Get() - y1
 			if d > 3 {
 				if b := p.OnBlock(); b != nil && b.EncodedName() != "minecraft:air" && b.EncodedName() != "minecraft:water" {
 					d -= 3
 					if int(d) > 0 {
 						p.Damage(float32(d), enum.DamageTypeFall)
 					}
-					p.SetHighestY(0)
+					p.HighestY.Set(0)
 				}
 			}
 		}
 	}
+
+	logger.Println(p.Position)
 
 	distance := math.Sqrt((x1-oldx)*(x1-oldx) + (y1-oldy)*(y1-oldy) + (z1-oldz)*(z1-oldz))
 	/*if distance > 100 && !teleport {
@@ -110,7 +115,7 @@ func (p *Player) HandleMovement(packetid int32, x1, y1, z1 float64, ya, pi float
 	}
 
 	p.playerController.Range(func(u uuid.UUID, pl *Player) bool {
-		if p.UUID() == u {
+		if p.Session.UUID() == u {
 			return true
 		}
 		if !pl.InView(p.Position.X(), p.Position.Y(), p.Position.Z()) {

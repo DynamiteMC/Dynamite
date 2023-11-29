@@ -23,7 +23,7 @@ func (srv *Server) GlobalMessage(message chat.Message) {
 
 func (srv *Server) OperatorMessage(message chat.Message) {
 	srv.Players.Range(func(_ uuid.UUID, p *player.Player) bool {
-		if p.ClientSettings().ChatMode == 2 || !p.Operator() {
+		if p.ClientSettings().ChatMode == 2 || !p.Operator.Get() {
 			return true
 		}
 		p.SendPacket(&packet.SystemChatMessage{

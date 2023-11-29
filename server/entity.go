@@ -25,7 +25,7 @@ func (srv *Server) FindEntity(id int32) interface{} {
 
 func (srv *Server) FindEntityByUUID(id [16]byte) interface{} {
 	if _, p := srv.Players.Range(func(_ uuid.UUID, p *player.Player) bool {
-		return p.UUID() != id
+		return p.Session.UUID() != id
 	}); p != nil {
 		return p
 	}

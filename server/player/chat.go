@@ -23,7 +23,7 @@ func (p *Player) HandleChat(pk *packet.ChatMessageServer) {
 
 	prefix, suffix := p.GetPrefixSuffix()
 
-	net := chat.NewMessage(prefix + p.Name() + suffix).WithSuggestCommandClickEvent(fmt.Sprintf("/msg %s", p.Name()))
+	net := chat.NewMessage(prefix + p.Session.Name() + suffix).WithSuggestCommandClickEvent(fmt.Sprintf("/msg %s", p.Session.Name()))
 
 	if !p.config.Chat.Secure {
 		if !p.config.Chat.Colors || !p.HasPermissions([]string{"server.chat.colors"}) {
@@ -88,9 +88,9 @@ func (p *Player) HandleChat(pk *packet.ChatMessageServer) {
 				}
 			}
 			pl.SendPacket(&packet.PlayerChatMessage{
-				Sender:           p.UUID(),
+				Sender:           p.Session.UUID(),
 				MessageSignature: pk.Signature,
-				Index:            pl.Index(),
+				Index:            pl.index.Get(),
 				Message:          pk.Message,
 				Timestamp:        pk.Timestamp,
 				Salt:             pk.Salt,
@@ -107,15 +107,15 @@ func (p *Player) HandleChat(pk *packet.ChatMessageServer) {
 func (p *Player) Whisper(pl *Player, msg string, timestamp, salt int64, sig []byte) {
 	prefix, suffix := p.GetPrefixSuffix()
 	prefix1, suffix1 := pl.GetPrefixSuffix()
-	tgt := chat.NewMessage(prefix1 + pl.Name() + suffix1)
+	tgt := chat.NewMessage(prefix1 + pl.Session.Name() + suffix1)
 	p.SendPacket(&packet.PlayerChatMessage{
-		Sender:  p.UUID(),
+		Sender:  p.Session.UUID(),
 		Message: msg,
 		//MessageSignature:  sig,
 		Salt:              salt,
 		Timestamp:         timestamp,
 		ChatType:          enum.ChatTypeMsgCommandIncoming,
-		NetworkName:       chat.NewMessage(prefix + p.Name() + suffix),
+		NetworkName:       chat.NewMessage(prefix + p.Session.Name() + suffix),
 		NetworkTargetName: &tgt,
 	})
 }

@@ -1,100 +1,98 @@
 package pos
 
 import (
+	"fmt"
 	"math"
-	"sync/atomic"
+
+	"github.com/dynamitemc/dynamite/util/atomic"
 )
 
 type EntityPosition struct {
-	x, y, z,
-	yaw, pitch atomic.Value
-	onGround *atomic.Bool
+	x, y, z    *atomic.Value[float64]
+	yaw, pitch *atomic.Value[float32]
+	onGround   *atomic.Value[bool]
 }
 
-func NewEntityPosition() *EntityPosition {
+func NewEntityPosition(x, y, z float64, yaw, pitch float32, ong bool) *EntityPosition {
 	var e EntityPosition
-	e.SetX(0)
-	e.SetY(0)
-	e.SetZ(0)
-	e.SetYaw(0)
-	e.SetPitch(0)
-
-	e.onGround = &atomic.Bool{}
+	e.x = atomic.NewValue(x)
+	e.y = atomic.NewValue(y)
+	e.z = atomic.NewValue(z)
+	e.yaw = atomic.NewValue(yaw)
+	e.pitch = atomic.NewValue(pitch)
+	e.onGround = atomic.NewValue(ong)
 	return &e
 }
 
 func (pos *EntityPosition) X() float64 {
-	return pos.x.Load().(float64)
+	return pos.x.Get()
 }
 
 func (pos *EntityPosition) Y() float64 {
-	return pos.y.Load().(float64)
+	return pos.y.Get()
 }
 
 func (pos *EntityPosition) Z() float64 {
-	return pos.z.Load().(float64)
+	return pos.z.Get()
 }
 
 func (pos *EntityPosition) Yaw() float32 {
-	return pos.yaw.Load().(float32)
+	return pos.yaw.Get()
 }
 
 func (pos *EntityPosition) Pitch() float32 {
-	return pos.pitch.Load().(float32)
+	return pos.pitch.Get()
 }
 
 func (pos *EntityPosition) OnGround() bool {
-	return pos.onGround.Load()
+	return pos.onGround.Get()
 }
 
 func (pos *EntityPosition) SetX(x float64) {
-	pos.x.Store(x)
+	pos.x.Set(x)
 }
 
 func (pos *EntityPosition) SetY(y float64) {
-	pos.y.Store(y)
+	pos.y.Set(y)
 }
 
 func (pos *EntityPosition) SetZ(z float64) {
-	pos.z.Store(z)
+	pos.z.Set(z)
 }
 
 func (pos *EntityPosition) SetPosition(x, y, z float64) {
-	pos.x.Store(x)
-	pos.y.Store(y)
-	pos.z.Store(z)
+	pos.x.Set(x)
+	pos.y.Set(y)
+	pos.z.Set(z)
 }
 
 func (pos *EntityPosition) SetRotation(y, p float32) {
-	pos.yaw.Store(y)
-	pos.pitch.Store(p)
+	pos.yaw.Set(y)
+	pos.pitch.Set(p)
 }
 
-func (pos *EntityPosition) All() (x, y, z float64, yaw, pitch float32, ong bool) {
-	return pos.X(), pos.Y(), pos.Z(), pos.Yaw(), pos.Pitch(), pos.OnGround()
+func (pos *EntityPosition) Position() (x, y, z float64) {
+	return pos.x.Get(), pos.y.Get(), pos.z.Get()
 }
 
-func (pos *EntityPosition) SetAll(x, y, z float64, yaw, pitch float32, ong bool) {
-	pos.SetX(x)
-	pos.SetY(y)
-	pos.SetZ(z)
-
-	pos.SetYaw(yaw)
-	pos.SetPitch(pitch)
-
-	pos.SetOnGround(ong)
+func (pos *EntityPosition) Rotation() (yaw, pitch float32) {
+	return pos.yaw.Get(), pos.pitch.Get()
 }
 
 func (pos *EntityPosition) SetYaw(y float32) {
-	pos.yaw.Store(y)
+	pos.yaw.Set(y)
 }
 
 func (pos *EntityPosition) SetPitch(p float32) {
-	pos.pitch.Store(p)
+	pos.pitch.Set(p)
 }
 
 func (pos *EntityPosition) SetOnGround(ong bool) {
-	pos.onGround.Store(ong)
+	pos.onGround.Set(ong)
+}
+
+func (pos *EntityPosition) String() string {
+	return fmt.Sprintf("(%f %f %f | %f%f)", pos.X(), pos.Y(), pos.Z(), pos.Yaw(), pos.Pitch())
 }
 
 func DegreesToAngle(degrees float32) byte {

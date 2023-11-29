@@ -5,6 +5,7 @@ import (
 
 	"github.com/dynamitemc/dynamite/server/commands"
 	"github.com/dynamitemc/dynamite/server/lang/placeholder"
+	"github.com/google/uuid"
 )
 
 var ban_cmd = &commands.Command{
@@ -31,7 +32,7 @@ var ban_cmd = &commands.Command{
 		if len(ctx.Arguments) > 1 {
 			reason = server.Lang.Translate("disconnect.banned.reason", placeholder.New(map[string]string{"reason": strings.Join(ctx.Arguments[1:], " ")}, player.PlaceholderContext))
 		}
-		server.Ban(player.Name(), player.UUID().String(), strings.Join(ctx.Arguments[1:], " "))
+		server.Ban(player.Session.Name(), uuid.UUID(player.Session.UUID()).String(), strings.Join(ctx.Arguments[1:], " "))
 		player.Disconnect(reason)
 	},
 }

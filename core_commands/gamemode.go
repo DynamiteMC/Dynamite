@@ -52,13 +52,13 @@ var gamemode_cmd = &commands.Command{
 			}
 			pl = p
 		}
-		if int(pl.GameMode()) == gm {
+		if int(pl.GameMode.Get()) == gm {
 			return
 		}
 		pl.SetGameMode(byte(gm))
 		ph := placeholder.New(map[string]string{"gamemode": pascalify(ctx.Arguments[0])}, pl.PlaceholderContext)
 		msg := pl.Server.(*server.Server).Lang.Translate("commands.gamemode.success.other", ph)
-		if exe, ok := ctx.Executor.(*player.Player); ok && pl.UUID() == exe.UUID() {
+		if exe, ok := ctx.Executor.(*player.Player); ok && pl.Session.UUID() == exe.Session.UUID() {
 			msg = pl.Server.(*server.Server).Lang.Translate("commands.gamemode.success.self", ph)
 		}
 		ctx.Reply(msg)

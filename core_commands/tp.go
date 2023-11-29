@@ -33,10 +33,10 @@ var tp_cmd = &commands.Command{
 					ep, es := exe.GetPrefixSuffix()
 					pp, ps := player.GetPrefixSuffix()
 					ctx.Reply(srv.Lang.Translate("commands.teleport.success.entity.single", placeholder.New(map[string]string{
-						"player":         exe.Name(),
+						"player":         exe.Session.Name(),
 						"player_prefix":  ep,
 						"player_suffx":   es,
-						"player1":        player.Name(),
+						"player1":        player.Session.Name(),
 						"player1_prefix": pp,
 						"player1_suffx":  ps,
 					})))
@@ -54,10 +54,10 @@ var tp_cmd = &commands.Command{
 				ep, es := player1.GetPrefixSuffix()
 				pp, ps := player2.GetPrefixSuffix()
 				ctx.Reply(srv.Lang.Translate("commands.teleport.success.entity.single", placeholder.New(map[string]string{
-					"player":         player1.Name(),
+					"player":         player1.Session.Name(),
 					"player_prefix":  ep,
 					"player_suffx":   es,
-					"player1":        player2.Name(),
+					"player1":        player2.Session.Name(),
 					"player1_prefix": pp,
 					"player1_suffx":  ps,
 				})))
@@ -90,7 +90,7 @@ var tp_cmd = &commands.Command{
 					prefix, suffix := exe.GetPrefixSuffix()
 					ctx.Reply(srv.Lang.Translate("commands.teleport.success.location.single", placeholder.New(
 						map[string]string{
-							"player":        exe.Name(),
+							"player":        exe.Session.Name(),
 							"player_prefix": prefix,
 							"player_suffx":  suffix,
 							"x":             fmt.Sprint(x),
@@ -125,7 +125,7 @@ var tp_cmd = &commands.Command{
 				prefix, suffix := player.GetPrefixSuffix()
 				ctx.Reply(srv.Lang.Translate("commands.teleport.success.location.single", placeholder.New(
 					map[string]string{
-						"player":        player.Name(),
+						"player":        player.Session.Name(),
 						"player_prefix": prefix,
 						"player_suffx":  suffix,
 						"x":             fmt.Sprint(x),

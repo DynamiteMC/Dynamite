@@ -10,10 +10,11 @@ import (
 	"github.com/dynamitemc/dynamite/logger/color"
 	"github.com/dynamitemc/dynamite/server/commands"
 	"github.com/dynamitemc/dynamite/server/player"
+	"github.com/google/uuid"
 )
 
 func ChatCommandPacket(state *player.Player, graph *commands.Graph, log *logger.Logger, content string, timestamp, salt int64, sigs []packet.Argument) {
-	log.Info(color.FromChat(chat.NewMessage(fmt.Sprintf("[%s] Player %s (%s) issued server command /%s", state.IP(), state.Name(), state.UUID(), content))))
+	log.Info(color.FromChat(chat.NewMessage(fmt.Sprintf("[%s] Player %s (%s) issued server command /%s", state.IP(), state.Session.Name(), uuid.UUID(state.Session.UUID()).String(), content))))
 	args := strings.Split(content, " ")
 	cmd := args[0]
 	var command *commands.Command

@@ -153,8 +153,8 @@ func (srv *Server) MakeOperator(p *player.Player) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 	srv.Operators = append(srv.Operators, user{
-		UUID: p.UUID().String(),
-		Name: p.Name(),
+		UUID: uuid.UUID(p.Session.UUID()).String(),
+		Name: p.Session.Name(),
 	})
 }
 
@@ -164,7 +164,7 @@ func (srv *Server) MakeNotOperator(p *player.Player) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 	for i, op := range srv.Operators {
-		if op.UUID == p.UUID().String() {
+		if op.UUID == uuid.UUID(p.Session.UUID()).String() {
 			srv.Operators = slices.Delete(srv.Operators, i, i+1)
 			return
 		}

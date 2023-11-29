@@ -8,16 +8,17 @@ import (
 
 	"github.com/aimjel/minecraft/packet"
 	"github.com/dynamitemc/dynamite/server/item"
+	"github.com/dynamitemc/dynamite/util/atomic"
 )
 
 type Inventory struct {
 	mu           sync.RWMutex
-	selectedSlot int32
+	SelectedSlot atomic.Value[int32]
 	carriedItem  item.Item
 	inv          []item.Item
 }
 
-func From(inv []item.Item, selectedSlot int32) *Inventory {
+func Import(inv []item.Item, selectedSlot int32) *Inventory {
 	return &Inventory{inv: inv}
 }
 
@@ -27,13 +28,15 @@ func (inv *Inventory) Clear() {
 	clear(inv.inv)
 }
 
-func (inv *Inventory) Data() []item.Item {
+// Export returns the inventory slots for the player NBT data
+func (inv *Inventory) Export() []item.Item {
 	inv.mu.RLock()
 	defer inv.mu.RUnlock()
 	return inv.inv
 }
 
-func (inv *Inventory) Packet() (i []packet.Slot) {
+// Data returns the inventory slots for the set container content packet
+func (inv *Inventory) Data() (i []packet.Slot) {
 	inv.mu.RLock()
 	defer inv.mu.RUnlock()
 	i = make([]packet.Slot, 46)
@@ -140,13 +143,7 @@ func (inv *Inventory) Collect(slot int8) {
 }
 
 func (inv *Inventory) HeldItem() (item.Item, bool) {
-	return inv.Slot(NetworkSlotToDataSlot(int16((inv.selectedSlot + 36))))
-}
-
-func (inv *Inventory) SetSelectedSlot(s int32) {
-	inv.mu.Lock()
-	defer inv.mu.Unlock()
-	inv.selectedSlot = s
+	return inv.Slot(NetworkSlotToDataSlot(int16((inv.SelectedSlot.Get() + 36))))
 }
 
 func (inv *Inventory) SetCarriedItem(slot int8) {

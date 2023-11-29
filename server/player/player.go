@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"slices"
 	"sync"
-	"sync/atomic"
 
 	"github.com/aimjel/minecraft/chat"
 	"github.com/aimjel/minecraft/packet"
@@ -26,6 +25,7 @@ import (
 	"github.com/dynamitemc/dynamite/server/session"
 	"github.com/dynamitemc/dynamite/server/world"
 	"github.com/dynamitemc/dynamite/server/world/chunk"
+	"github.com/dynamitemc/dynamite/util/atomic"
 
 	"github.com/google/uuid"
 )
@@ -69,59 +69,45 @@ type Player struct {
 	playerController *controller.Controller[uuid.UUID, *Player]
 	entityController *controller.Controller[int32, entity.Entity]
 
-	session session.Session
+	Session session.Session
 
 	entityID int32
 
-	isHardCore *atomic.Bool
-	gameMode   byte
+	GameMode *atomic.Value[byte]
 
-	dead           *atomic.Bool
-	health         float32
-	food           *atomic.Int32
-	foodSaturation float32
+	IsDead         *atomic.Value[bool]
+	Health         *atomic.Value[float32]
+	FoodLevel      *atomic.Value[int32]
+	FoodSaturation *atomic.Value[float32]
 
 	data *world.PlayerData
 
 	Inventory            *inventory.Inventory
-	previousSelectedSlot item.Item
-	selectedSlot         *atomic.Int32
+	PreviousSelectedSlot *atomic.Value[item.Item]
 
 	dimension *world.Dimension
 
 	clientInfo clientInfo
 
 	Position         *epos.EntityPosition
-	operator, flying *atomic.Bool
-	highestY         float64
+	Operator, Flying *atomic.Value[bool]
+	HighestY         *atomic.Value[float64]
 
 	spawnedEntities []int32
 	loadedChunks    map[[2]int32]struct{}
 
-	sessionID    [16]byte
-	publicKey    []byte
-	keySignature []byte
-	expires      int64
+	sessionID    *atomic.Value[[16]byte]
+	publicKey    *atomic.Value[[]byte]
+	keySignature *atomic.Value[[]byte]
+	expires      *atomic.Value[int64]
 
 	previousMessages              []packet.PreviousMessage
 	acknowledgedMessageSignatures [][]byte
-	index                         *atomic.Int32
+	index                         *atomic.Value[int32]
 
 	newID func() int32
 
 	mu sync.RWMutex
-}
-
-func newAtomicInt32(val int32) *atomic.Int32 {
-	v := &atomic.Int32{}
-	v.Add(val)
-	return v
-}
-
-func newAtomicBool(val bool) *atomic.Bool {
-	v := &atomic.Bool{}
-	v.Store(val)
-	return v
 }
 
 func New(
@@ -146,31 +132,28 @@ func New(
 		lang:             lang,
 		playerController: players,
 		entityController: entities,
-		session:          session,
+		Session:          session,
 		entityID:         entityId,
-		isHardCore:       &atomic.Bool{},
-		gameMode:         byte(data.PlayerGameType),
-		dead:             &atomic.Bool{},
-		food:             newAtomicInt32(data.FoodLevel),
 		data:             data,
-		Inventory:        inventory.From(data.Inventory, data.SelectedItemSlot),
-		selectedSlot:     newAtomicInt32(data.SelectedItemSlot),
-		dimension:        dimension,
-		operator:         &atomic.Bool{},
-		flying:           newAtomicBool(data.Abilities.Flying),
-		index:            &atomic.Int32{},
-		health:           data.Health,
-		foodSaturation:   data.FoodSaturationLevel,
-		newID:            newID,
-		Position:         epos.NewEntityPosition(),
+
+		GameMode:  atomic.NewValue(byte(data.PlayerGameType)),
+		Inventory: inventory.Import(data.Inventory, data.SelectedItemSlot),
+		dimension: dimension,
+		Flying:    atomic.NewValue(data.Abilities.Flying),
+
+		Health:         atomic.NewValue(data.Health),
+		FoodLevel:      atomic.NewValue(data.FoodLevel),
+		FoodSaturation: atomic.NewValue(data.FoodSaturationLevel),
+
+		newID:    newID,
+		Position: epos.NewEntityPosition(data.Pos[0], data.Pos[1], data.Pos[2], data.Rotation[0], data.Rotation[1], data.OnGround),
 	}
-	pl.Position.SetAll(data.Pos[0], data.Pos[1], data.Pos[2], data.Rotation[0], data.Rotation[1], data.OnGround)
 	pl.clientInfo.ViewDistance = vd
 
 	prefix, suffix := pl.GetPrefixSuffix()
 
 	pl.PlaceholderContext = placeholder.New(map[string]string{
-		"player":        pl.Name(),
+		"player":        pl.Session.Name(),
 		"player_prefix": prefix,
 		"player_suffix": suffix,
 	}, ph)
@@ -179,34 +162,33 @@ func New(
 }
 
 func (p *Player) Save() {
-	p.mu.Lock()
-	p.data.Pos[0], p.data.Pos[1], p.data.Pos[2], p.data.Rotation[0], p.data.Rotation[1], p.data.OnGround = p.Position.All()
-	p.data.PlayerGameType = int32(p.gameMode)
-	p.data.Inventory = p.Inventory.Data()
-	p.data.Abilities.Flying = p.flying.Load()
+	p.data.Pos[0], p.data.Pos[1], p.data.Pos[2], p.data.Rotation[0], p.data.Rotation[1], p.data.OnGround = p.Position.X(), p.Position.Y(), p.Position.Z(), p.Position.Yaw(), p.Position.Pitch(), p.Position.OnGround()
+	p.data.PlayerGameType = int32(p.GameMode.Get())
+	p.data.Inventory = p.Inventory.Export()
+	p.data.Abilities.Flying = p.Flying.Get()
 	p.data.Dimension = p.dimension.Type()
-	p.data.SelectedItemSlot = p.selectedSlot.Load()
-	p.data.Health = p.health
-	p.data.FoodSaturationLevel = p.foodSaturation
-	p.data.FoodLevel = p.food.Load()
-	p.mu.Unlock()
+	p.data.SelectedItemSlot = p.Inventory.SelectedSlot.Get()
+	p.data.Health = p.Health.Get()
+	p.data.FoodSaturationLevel = p.FoodSaturation.Get()
+	p.data.FoodLevel = p.FoodLevel.Get()
 
 	p.data.Save()
 }
 
 func (p *Player) Respawn(d *world.Dimension) {
-	p.SetDead(false)
+	p.IsDead.Set(false)
 	p.SetHealth(20)
-	p.SetFoodLevel(20)
-	p.SetFoodSaturationLevel(5)
+	p.FoodLevel.Set(20)
+	p.FoodSaturation.Set(5)
 
-	p.SendPacket(&packet.Respawn{
-		GameMode:         p.GameMode(),
-		PreviousGameMode: -1,
+	p.Session.SendPacket(&packet.Respawn{
 		DimensionType:    d.Type(),
 		DimensionName:    d.Type(),
+		GameMode:         p.GameMode.Get(),
+		PreviousGameMode: -1,
 		HashedSeed:       d.Seed(),
 	})
+
 	p.SetDimension(d)
 
 	var x1, y1, z1 int32
@@ -228,14 +210,13 @@ func (p *Player) Respawn(d *world.Dimension) {
 		p.Inventory.Clear()
 	}
 
-	p.SendPacket(&packet.SetContainerContent{
-		WindowID: 0,
-		StateID:  1,
-		Slots:    p.Inventory.Packet(),
+	p.Session.SendPacket(&packet.SetContainerContent{
+		StateID: 1,
+		Slots:   p.Inventory.Data(),
 	})
 
 	chunkX, chunkZ := math.Floor(float64(x1)/16), math.Floor(float64(z1)/16)
-	p.SendPacket(&packet.SetCenterChunk{ChunkX: int32(chunkX), ChunkZ: int32(chunkZ)})
+	p.Session.SendPacket(&packet.SetCenterChunk{ChunkX: int32(chunkX), ChunkZ: int32(chunkZ)})
 	p.Teleport(float64(x1), float64(y1), float64(z1), yaw, pitch)
 	p.SendChunks(d)
 
@@ -251,11 +232,11 @@ func (p *Player) Login(d *world.Dimension) {
 	x1, y1, z1 := p.Position.X(), p.Position.Y(), p.Position.Z()
 	yaw, pitch := p.Position.Yaw(), p.Position.Pitch()
 
-	p.logger.Info("[%s] Player %s (%s) has joined the server with entity id %d at [%s]%f %f %f", p.IP(), p.Name(), p.UUID(), p.entityID, p.Dimension().Type(), x1, y1, z1)
+	p.logger.Info("[%s] Player %s (%s) has joined the server with entity id %d at [%s]%f %f %f", p.IP(), p.Session.Name(), uuid.UUID(p.Session.UUID()), p.entityID, p.Dimension().Type(), x1, y1, z1)
 	p.SendPacket(&packet.JoinGame{
 		EntityID:           p.entityID,
-		IsHardcore:         p.IsHardcore(),
-		GameMode:           p.GameMode(),
+		IsHardcore:         p.config.Hardcore,
+		GameMode:           p.GameMode.Get(),
 		PreviousGameMode:   -1,
 		DimensionNames:     []string{"minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"},
 		DimensionType:      d.Type(),
@@ -264,14 +245,14 @@ func (p *Player) Login(d *world.Dimension) {
 		ViewDistance:       int32(p.clientInfo.ViewDistance),
 		SimulationDistance: int32(p.clientInfo.ViewDistance), //todo fix this
 	})
-	p.SendPacket(&packet.PluginMessage{
+	p.Session.SendPacket(&packet.PluginMessage{
 		Channel: "minecraft:brand",
 		Data:    []byte("Dynamite"),
 	})
 	chunkX, chunkZ := math.Floor(x1/16), math.Floor(z1/16)
-	p.SendPacket(&packet.SetCenterChunk{ChunkX: int32(chunkX), ChunkZ: int32(chunkZ)})
 
-	p.Position.SetAll(x1, y1, z1, yaw, pitch, false)
+	p.Session.SendPacket(&packet.SetCenterChunk{ChunkX: int32(chunkX), ChunkZ: int32(chunkZ)})
+
 	p.SendChunks(d)
 
 	logger.Println("sent chunks")
@@ -327,11 +308,11 @@ func (p *Player) Damage(health float32, typ int32) {
 		})
 		return true
 	})
-	p.SetHealth(p.Health() - health)
+	p.SetHealth(p.Health.Get() - health)
 }
 
 func (p *Player) Kill(message string) {
-	p.SetDead(true)
+	p.IsDead.Set(true)
 	if f, _ := world.GameRule(p.Dimension().World().Gamerules()["doImmediateRespawn"]).Bool(); !f {
 		p.SendPacket(&packet.GameEvent{
 			Event: enum.GameEventEnableRespawnScreen,
@@ -401,7 +382,7 @@ func (p *Player) Disconnect(reason chat.Message) {
 	pk := &packet.DisconnectPlay{}
 	pk.Reason = reason
 	p.SendPacket(pk)
-	p.session.Close(nil)
+	p.Session.Close(nil)
 }
 
 func (p *Player) IsChunkLoaded(x, z int32) bool {
@@ -477,7 +458,7 @@ func (p *Player) ChunkPosition() (x int32, z int32) {
 }
 
 func (p *Player) GetPrefixSuffix() (prefix string, suffix string) {
-	group := permission.GetGroup(permission.GetPlayer(p.UUID().String()).Group)
+	group := permission.GetGroup(permission.GetPlayer(uuid.UUID(p.Session.UUID()).String()).Group)
 	return group.Prefix, group.Suffix
 }
 
@@ -500,7 +481,7 @@ func (p *Player) SpawnPlayer(pl *Player) {
 
 	p.SendPacket(&packet.SpawnPlayer{
 		EntityID:   entityId,
-		PlayerUUID: pl.session.UUID(),
+		PlayerUUID: pl.Session.UUID(),
 		X:          x,
 		Y:          y,
 		Z:          z,
@@ -542,13 +523,13 @@ func (p *Player) IntitializeData() {
 	p.SendPacket(&packet.SetContainerContent{
 		WindowID: 0,
 		StateID:  1,
-		Slots:    p.Inventory.Packet(),
+		Slots:    p.Inventory.Data(),
 	})
-	p.SendPacket(&packet.SetHeldItem{Slot: int8(p.SelectedSlot())})
+	p.SendPacket(&packet.SetHeldItem{Slot: int8(p.Inventory.SelectedSlot.Get())})
 	p.SendPacket(&packet.SetHealth{
-		Health:         p.Health(),
-		FoodSaturation: p.FoodSaturationLevel(),
-		Food:           p.FoodLevel(),
+		Health:         p.Health.Get(),
+		FoodSaturation: p.FoodSaturation.Get(),
+		Food:           p.FoodLevel.Get(),
 	})
 }
 
@@ -573,7 +554,7 @@ func (p *Player) SetSlot(slot int8, data item.Item) {
 }
 
 func (p *Player) DropSlot() {
-	item := p.PreviousSelectedSlot()
+	item := p.PreviousSelectedSlot.Get()
 	s, _ := item.ToPacketSlot()
 	x, y, z := p.Position.X(), p.Position.Y(), p.Position.Z()
 
@@ -631,15 +612,15 @@ func (p *Player) TeleportToEntity(uuid [16]byte) {
 }
 
 func (p *Player) IP() string {
-	return p.session.RemoteAddr().String()
+	return p.Session.RemoteAddr().String()
 }
 
 func (s *Player) HasPermissions(perms []string) bool {
-	if s.Operator() {
+	if s.Operator.Get() {
 		return true
 	}
 
-	return permission.HasPermissions(s.Name(), perms)
+	return permission.HasPermissions(s.Session.Name(), perms)
 }
 
 func (p *Player) InView(x2, y2, z2 float64) bool {
@@ -673,10 +654,6 @@ func (p *Player) CacheMessage(s []byte) {
 	p.acknowledgedMessageSignatures = append(p.acknowledgedMessageSignatures, s)
 }
 
-func (p *Player) Index() int32 {
-	return p.index.Load()
-}
-
 func (p *Player) PreviousMessages() []packet.PreviousMessage {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -688,11 +665,11 @@ func (p *Player) AddMessage(sig []byte) {
 	if len(p.previousMessages) != 20 {
 		p.previousMessages = append([]packet.PreviousMessage{
 			{
-				MessageID: p.index.Load(),
+				MessageID: p.index.Get(),
 				Signature: sig,
 			},
 		}, p.previousMessages...)
 	}
 	p.mu.Unlock()
-	p.index.Add(1)
+	p.index.Set(p.index.Get() + 1)
 }

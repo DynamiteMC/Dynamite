@@ -17,9 +17,11 @@ import (
 var pcg32 = pcg.NewPCG32()
 
 type Ticker struct {
-	ticker  *time.Ticker
-	server  *server.Server
-	started bool
+	ticker      *time.Ticker
+	server      *server.Server
+	started     bool
+	currentTick uint
+	paused      bool
 }
 
 func New(srv *server.Server, tps int64) *Ticker {
@@ -38,11 +40,21 @@ func (t *Ticker) Restart(tps int64) {
 	t.ticker = time.NewTicker(time.Second / time.Duration(tps))
 }
 
+func (t *Ticker) Pause() {
+	t.paused = true
+}
+
+func (t *Ticker) Resume() {
+	t.paused = false
+}
+
 func (t *Ticker) tickLoop() {
-	var n uint
 	for range t.ticker.C {
-		t.tick(n)
-		n++
+		if t.paused {
+			continue
+		}
+		t.tick(t.currentTick)
+		t.currentTick++
 	}
 }
 

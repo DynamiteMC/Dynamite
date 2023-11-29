@@ -9,7 +9,7 @@ import (
 func PlayerAction(state *player.Player, pk *packet.PlayerActionServer) {
 	switch pk.Status {
 	case enum.PlayerActionStartedDigging:
-		if state.GameMode() == enum.GameModeCreative {
+		if state.GameMode.Get() == enum.GameModeCreative {
 			state.BreakBlock(int64(pk.Location))
 		}
 		state.BroadcastMetadataInArea(&packet.SetEntityMetadata{
@@ -27,7 +27,7 @@ func PlayerAction(state *player.Player, pk *packet.PlayerActionServer) {
 		})
 	case enum.PlayerActionDropItemStack, enum.PlayerActionDropItem:
 		if s, ok := state.Inventory.HeldItem(); ok {
-			state.SetPreviousSelectedSlot(s)
+			state.PreviousSelectedSlot.Set(s)
 			state.Inventory.DeleteSlot(int8(s.Slot))
 		}
 		//controller.DropSlot()

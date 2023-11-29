@@ -30,7 +30,7 @@ var kill_cmd = &commands.Command{
 			}
 			pl = p
 		}
-		name := pl.Name()
+		name := pl.Session.Name()
 		pl.Kill(name + " was killed")
 		ctx.Reply(pl.Server.(*server.Server).Lang.Translate("commands.kill.success.single", pl.PlaceholderContext))
 		pl.Server.(*server.Server).GlobalMessage(chat.NewMessage(name + " was killed"))

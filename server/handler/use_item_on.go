@@ -16,7 +16,7 @@ func UseItemOn(state *player.Player, pk *packet.UseItemOnServer, f func(d *world
 		// todo check for snow/ flowers etc
 		//return
 	}
-	i, ok := state.Inventory.Slot(int8(state.SelectedSlot()))
+	i, ok := state.Inventory.Slot(int8(state.Inventory.SelectedSlot.Get()))
 	if !ok {
 		return
 	}

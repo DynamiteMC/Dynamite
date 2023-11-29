@@ -9,7 +9,7 @@ func PlayerMovement(
 	state *player.Player,
 	p packet.Packet,
 ) {
-	if state.IsDead() {
+	if state.IsDead.Get() {
 		return
 	}
 	x, y, z := state.Position.X(), state.Position.Y(), state.Position.Z()

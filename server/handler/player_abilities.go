@@ -6,5 +6,5 @@ import (
 )
 
 func PlayerAbilities(state *player.Player, flags byte) {
-	state.SetFlying(flags == enum.PlayerAbilityFlying)
+	state.Flying.Set(flags == enum.PlayerAbilityFlying)
 }

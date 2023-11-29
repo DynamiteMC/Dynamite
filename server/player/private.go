@@ -7,29 +7,16 @@ import (
 	"github.com/aimjel/minecraft/packet"
 	"github.com/aimjel/minecraft/protocol/types"
 	"github.com/dynamitemc/dynamite/server/enum"
-	"github.com/dynamitemc/dynamite/server/item"
 	"github.com/dynamitemc/dynamite/server/world"
 	"github.com/google/uuid"
 )
 
-func (p *Player) UUID() uuid.UUID {
-	return p.session.UUID()
-}
-
-func (p *Player) Name() string {
-	return p.session.Name()
+func (p *Player) SendPacket(pk packet.Packet) error {
+	return p.Session.SendPacket(pk)
 }
 
 func (p *Player) EntityID() int32 {
 	return p.entityID
-}
-
-func (p *Player) SendPacket(pk packet.Packet) error {
-	return p.session.SendPacket(pk)
-}
-
-func (p *Player) ReadPacket() (packet.Packet, error) {
-	return p.session.ReadPacket()
 }
 
 func (p *Player) ClientSettings() clientInfo {
@@ -56,7 +43,7 @@ func (p *Player) SetClientSettings(pk *packet.ClientSettings) {
 }
 
 func (p *Player) Properties() []types.Property {
-	return p.session.Properties()
+	return p.Session.Properties()
 }
 
 func (p *Player) Dimension() *world.Dimension {
@@ -71,33 +58,14 @@ func (p *Player) SetDimension(d *world.Dimension) {
 	p.dimension = d
 }
 
-func (p *Player) IsDead() bool {
-	return p.dead.Load()
-}
-
-func (p *Player) SetDead(a bool) {
-	p.dead.Store(a)
-}
-
-func (p *Player) Health() float32 {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.health
-}
-
 func (p *Player) SetHealth(health float32) {
 	if health < 0 {
 		health = 0
 	}
-	p.mu.Lock()
-	p.health = health
-	p.mu.Unlock()
-	food, saturation := p.FoodLevel(), p.FoodSaturationLevel()
-	p.SendPacket(&packet.SetHealth{
-		Health:         health,
-		Food:           food,
-		FoodSaturation: saturation,
-	})
+
+	p.Health.Set(health)
+	food, saturation := p.FoodLevel.Get(), p.FoodSaturation.Get()
+	p.Session.SendPacket(&packet.SetHealth{Health: health, Food: food, FoodSaturation: saturation})
 	/*p.broadcastMetadataGlobal(&packet.SetEntityMetadata{
 		EntityID: p.EntityID(),
 		Health:   &health,
@@ -107,118 +75,39 @@ func (p *Player) SetHealth(health float32) {
 	}
 }
 
-func (p *Player) FoodLevel() int32 {
-	return p.food.Load()
-}
-
-func (p *Player) SetFoodLevel(level int32) {
-	p.food.Store(level)
-}
-
-func (p *Player) FoodSaturationLevel() float32 {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.foodSaturation
-}
-
-func (p *Player) SetFoodSaturationLevel(level float32) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.foodSaturation = level
-}
-
 func (p *Player) SavedAbilities() world.Abilities {
 	return p.data.Abilities
 }
 
-func (p *Player) SetFlying(val bool) {
-	p.flying.Store(val)
-}
-
-func (p *Player) IsHardcore() bool {
-	return p.isHardCore.Load()
-}
-
 func (p *Player) SetGameMode(gm byte) {
-	p.mu.Lock()
-	p.gameMode = gm
-	p.mu.Unlock()
-	p.SendPacket(&packet.GameEvent{
-		Event: enum.GameEventChangeGamemode,
-		Value: float32(gm),
-	})
+	p.GameMode.Set(gm)
+
+	p.Session.SendPacket(&packet.GameEvent{Event: enum.GameEventChangeGamemode, Value: float32(gm)})
 	p.BroadcastGamemode()
 }
 
-func (p *Player) GameMode() byte {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.gameMode
-}
-
-func (p *Player) SetHighestY(y float64) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.highestY = y
-}
-
-func (p *Player) HighestY() float64 {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.highestY
-}
-
-func (p *Player) Operator() bool {
-	return p.operator.Load()
-}
-
 func (p *Player) SetOperator(op bool) {
-	p.operator.Store(op)
+	p.Operator.Set(op)
 	v := enum.EntityStatusPlayerOpPermissionLevel0
 	if op {
 		v = enum.EntityStatusPlayerOpPermissionLevel4
 	}
-	p.SendPacket(&packet.EntityEvent{
-		EntityID: p.entityID,
-		Status:   v,
-	})
-}
 
-func (p *Player) SetSelectedSlot(h int32) {
-	p.selectedSlot.Store(h)
-	p.Inventory.SetSelectedSlot(h)
-}
+	p.Session.SendPacket(&packet.EntityEvent{EntityID: p.entityID, Status: v})
 
-func (p *Player) SelectedSlot() int32 {
-	return p.selectedSlot.Load()
 }
-
-func (p *Player) PreviousSelectedSlot() item.Item {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.previousSelectedSlot
-}
-
-func (p *Player) SetPreviousSelectedSlot(s item.Item) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.previousSelectedSlot = s
-}
-
 func (p *Player) SetSessionID(id [16]byte, pk, ks []byte, expires int64) {
-	p.mu.Lock()
-	p.sessionID = id
-	p.publicKey = bytes.Clone(pk)
-	p.keySignature = bytes.Clone(ks)
-	p.expires = expires
-	p.mu.Unlock()
+	p.sessionID.Set(id)
+	p.publicKey.Set(bytes.Clone(pk))
+	p.keySignature.Set(bytes.Clone(ks))
+	p.expires.Set(expires)
 
 	p.playerController.Range(func(_ uuid.UUID, pl *Player) bool {
-		pl.SendPacket(&packet.PlayerInfoUpdate{
+		pl.Session.SendPacket(&packet.PlayerInfoUpdate{
 			Actions: 0x02,
 			Players: []types.PlayerInfo{
 				{
-					UUID:          p.session.UUID(),
+					UUID:          p.Session.UUID(),
 					ChatSessionID: id,
 					PublicKey:     bytes.Clone(pk),
 					KeySignature:  bytes.Clone(ks),
@@ -231,9 +120,7 @@ func (p *Player) SetSessionID(id [16]byte, pk, ks []byte, expires int64) {
 }
 
 func (p *Player) SessionID() (id [16]byte, pk, ks []byte, expires int64) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.sessionID, p.publicKey, p.keySignature, p.expires
+	return p.sessionID.Get(), p.publicKey.Get(), p.keySignature.Get(), p.expires.Get()
 }
 
 /*// SetSkin allows you to set the player's skin.
@@ -268,11 +155,11 @@ func (p *Player) SetCape(url string) {
 
 func (p *Player) SetDisplayName(name *chat.Message) {
 	p.playerController.Range(func(_ uuid.UUID, pl *Player) bool {
-		pl.SendPacket(&packet.PlayerInfoUpdate{
+		pl.Session.SendPacket(&packet.PlayerInfoUpdate{
 			Actions: 0x20,
 			Players: []types.PlayerInfo{
 				{
-					UUID:        p.UUID(),
+					UUID:        p.Session.UUID(),
 					DisplayName: name,
 				},
 			},

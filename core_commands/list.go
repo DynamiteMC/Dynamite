@@ -30,9 +30,9 @@ var list_cmd = &commands.Command{
 		msg := fmt.Sprintf("There are %d of a max of %d players online: ", l, srv.Config.MaxPlayers)
 		var index int
 		srv.Players.Range(func(_ uuid.UUID, p *player.Player) bool {
-			msg += p.Name()
+			msg += p.Session.Name()
 			if len(ctx.Arguments) == 1 && ctx.Arguments[0] == "uuids" {
-				msg += fmt.Sprintf(" (%s)", p.UUID())
+				msg += fmt.Sprintf(" (%s)", uuid.UUID(p.Session.UUID()))
 			}
 			if index != l-1 {
 				msg += ", "

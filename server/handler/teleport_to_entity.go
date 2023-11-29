@@ -7,7 +7,7 @@ import (
 )
 
 func TeleportToEntity(state *player.Player, uuid [16]byte) {
-	if state.GameMode() != enum.GameModeSpectator {
+	if state.GameMode.Get() != enum.GameModeSpectator {
 		state.Disconnect(chat.NewMessage("Yo how do you do dat without gamemode spectator?"))
 		return
 	}

@@ -10,14 +10,14 @@ import (
 )
 
 func SetCreativeModeSlot(state *player.Player, slot int16, data packet.Slot) {
-	if state.GameMode() != enum.GameModeCreative {
+	if state.GameMode.Get() != enum.GameModeCreative {
 		state.Disconnect(chat.NewMessage("bruh cant use the creative button without creative"))
 		return
 	}
 	s := inventory.NetworkSlotToDataSlot(slot)
 	if !data.Present {
 		if s, ok := state.Inventory.Slot(s); ok {
-			state.SetPreviousSelectedSlot(s)
+			state.PreviousSelectedSlot.Set(s)
 		}
 		//state.ClearItem(s)
 	} else {

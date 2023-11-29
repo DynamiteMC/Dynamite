@@ -20,7 +20,7 @@ import (
 
 func (p *Player) BroadcastAnimation(animation uint8) {
 	p.playerController.Range(func(u uuid.UUID, pl *Player) bool {
-		if !pl.IsSpawned(p.EntityID()) || u == p.UUID() {
+		if !pl.IsSpawned(p.EntityID()) || u == p.Session.UUID() {
 			return true
 		}
 
@@ -58,11 +58,11 @@ func (p *Player) Attack(entityId int32) {
 	x, y, z := p.Position.X(), p.Position.Y(), p.Position.Z()
 	soundId := int32(519)
 	if pl, ok := e.(*Player); ok {
-		if pl.GameMode() == enum.GameModeCreative {
+		if pl.GameMode.Get() == enum.GameModeCreative {
 			return
 		}
 
-		health := pl.Health()
+		health := pl.Health.Get()
 		pl.SetHealth(health - 1)
 		pl.SendPacket(&packet.DamageEvent{
 			EntityID:        entityId,
@@ -120,13 +120,13 @@ func (p *Player) Despawn() {
 }
 
 func (p *Player) BroadcastGamemode() {
-	gm := int32(p.GameMode())
+	gm := int32(p.GameMode.Get())
 
 	p.playerController.Range(func(_ uuid.UUID, pl *Player) bool {
 		pl.SendPacket(&packet.PlayerInfoUpdate{
 			Actions: 0x04,
 			Players: []types.PlayerInfo{{
-				UUID:     p.UUID(),
+				UUID:     p.Session.UUID(),
 				GameMode: gm,
 			}},
 		})
@@ -137,9 +137,9 @@ func (p *Player) BroadcastGamemode() {
 func (p *Player) sendEquipment(pl *Player) {
 	slots := make(map[int8]packet.Slot)
 	inv := p.Inventory
-	sel := p.SelectedSlot()
+	sel := p.Inventory.SelectedSlot.Get()
 
-	for _, s := range inv.Data() {
+	for _, s := range inv.Export() {
 		switch s.Slot {
 		case int8(sel):
 			s, _ := s.ToPacketSlot()
@@ -183,7 +183,7 @@ func (p *Player) BroadcastMetadataInArea(pk *packet.SetEntityMetadata) {
 
 func (p *Player) broadcastMetadataGlobal(pk *packet.SetEntityMetadata) {
 	p.playerController.Range(func(u uuid.UUID, pl *Player) bool {
-		if u == p.UUID() {
+		if u == p.Session.UUID() {
 			return true
 		}
 		pl.SendPacket(pk)
@@ -215,7 +215,7 @@ func findEntityByUUID(
 	id [16]byte,
 ) interface{} {
 	if _, p := players.Range(func(_ uuid.UUID, p *Player) bool {
-		return p.UUID() != id
+		return p.Session.UUID() != id
 	}); p != nil {
 		return p
 	}

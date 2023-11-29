@@ -191,10 +191,10 @@ func (srv *Server) handleNewConn(conn *minecraft.Conn) {
 	plyr.IntitializeData()
 
 	if err := srv.handlePackets(plyr); err != nil {
-		srv.Logger.Info("[%s] Player %s (%s) has left the server", conn.RemoteAddr().String(), conn.Name(), plyr.UUID())
+		srv.Logger.Info("[%s] Player %s (%s) has left the server", conn.RemoteAddr().String(), conn.Name(), uuid)
 
 		srv.GlobalMessage(srv.Lang.Translate("player.leave", plyr.PlaceholderContext))
-		srv.Players.Delete(plyr.UUID())
+		srv.Players.Delete(plyr.Session.UUID())
 		plyr.Save()
 		srv.playerlistRemove(conn.UUID())
 		plyr.Despawn()
@@ -209,20 +209,20 @@ func (srv *Server) addPlayer(p *player.Player) {
 		EnforcesSecureChat: true,
 	})
 	newPlayer := types.PlayerInfo{
-		UUID:       p.UUID(),
-		Name:       p.Name(),
+		UUID:       p.Session.UUID(),
+		Name:       p.Session.Name(),
 		Properties: p.Properties(),
 		Listed:     true,
 	}
 
-	srv.Players.Set(p.UUID(), p)
+	srv.Players.Set(p.Session.UUID(), p)
 	players := make([]types.PlayerInfo, 0, srv.Players.Count())
 
 	srv.Players.Range(func(_ uuid.UUID, pl *player.Player) bool {
 		id, pk, ks, ex := pl.SessionID()
 		players = append(players, types.PlayerInfo{
-			UUID:          pl.UUID(),
-			Name:          pl.Name(),
+			UUID:          pl.Session.UUID(),
+			Name:          pl.Session.Name(),
 			Properties:    pl.Properties(),
 			Listed:        true,
 			PublicKey:     bytes.Clone(pk),
@@ -230,7 +230,7 @@ func (srv *Server) addPlayer(p *player.Player) {
 			ChatSessionID: id,
 			ExpiresAt:     ex,
 		})
-		if pl.UUID() != p.UUID() {
+		if pl.Session.UUID() != p.Session.UUID() {
 			pl.SendPacket(&packet.PlayerInfoUpdate{
 				Actions: 0x01 | 0x08,
 				Players: []types.PlayerInfo{newPlayer},
@@ -250,7 +250,7 @@ func (srv *Server) addPlayer(p *player.Player) {
 	})
 
 	if srv.Config.Web.Enable {
-		web.AddPlayer(p.Name(), p.UUID().String())
+		web.AddPlayer(p.Session.Name(), uuid.UUID(p.Session.UUID()).String())
 	}
 
 	srv.GlobalMessage(srv.Lang.Translate("player.join", p.PlaceholderContext))
@@ -265,7 +265,7 @@ func (srv *Server) handlePackets(p *player.Player) error {
 		default:
 		}
 
-		packt, err := p.ReadPacket()
+		packt, err := p.Session.ReadPacket()
 		if err != nil {
 			return err
 		}
@@ -321,12 +321,12 @@ func (srv *Server) Reload() error {
 	permission.Clear()
 
 	srv.Players.Range(func(_ uuid.UUID, p *player.Player) bool {
-		if srv.Config.Whitelist.Enforce && srv.Config.Whitelist.Enable && !srv.IsWhitelisted(p.UUID()) {
+		if srv.Config.Whitelist.Enforce && srv.Config.Whitelist.Enable && !srv.IsWhitelisted(p.Session.UUID()) {
 			p.Disconnect(srv.Lang.Translate("disconnect.not_whitelisted", nil))
 			return true
 		}
 
-		p.SetOperator(srv.IsOperator(p.UUID()))
+		p.SetOperator(srv.IsOperator(p.Session.UUID()))
 		p.SendCommands(srv.commandGraph)
 		return true
 	})
@@ -335,7 +335,7 @@ func (srv *Server) Reload() error {
 
 func (srv *Server) FindPlayer(username string) *player.Player {
 	_, p := srv.Players.Range(func(_ uuid.UUID, p *player.Player) bool {
-		return !strings.EqualFold(p.Name(), username)
+		return !strings.EqualFold(p.Session.Name(), username)
 	})
 
 	return p
@@ -362,7 +362,7 @@ func (srv *Server) Close() {
 	permission.Save()
 
 	srv.Players.Range(func(_ uuid.UUID, p *player.Player) bool {
-		p.Disconnect(srv.Lang.Translate("disconnect.server_shutdown", nil))
+		p.Disconnect(srv.Lang.Translate("disconnect.server_shutdown", srv.PlaceholderContext))
 		p.Save()
 		return true
 	})

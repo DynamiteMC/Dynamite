@@ -29,7 +29,7 @@ var nick_cmd = &commands.Command{
 			}
 		} else {
 			p = srv.Players.Find(func(_ uuid.UUID, pl *player.Player) bool {
-				return pl.Name() == ctx.Arguments[0]
+				return pl.Session.Name() == ctx.Arguments[0]
 			})
 		}
 		if p == nil {
