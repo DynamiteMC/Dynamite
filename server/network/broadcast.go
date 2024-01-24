@@ -137,10 +137,12 @@ func (b *Broadcast) AddSession(c *Session) {
 }
 
 func (b *Broadcast) RemoveSessions(sessions ...*Session) {
-	ids := make([][16]byte, 0, len(sessions))
+	uuids := make([][16]byte, 0, len(sessions))
+	eids := make([]int32, 0, len(sessions))
 	b.mu.Lock()
 	for _, s := range sessions {
-		ids = append(ids, s.conn.UUID())
+		uuids = append(uuids, s.conn.UUID())
+		eids = append(eids, s.eid)
 		delete(b.sessions, s.conn.Name())
 	}
 	b.mu.Unlock()
@@ -148,7 +150,8 @@ func (b *Broadcast) RemoveSessions(sessions ...*Session) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	for _, sesh := range b.sessions {
-		sesh.conn.SendPacket(&packet.PlayerInfoRemove{UUIDs: ids})
+		sesh.conn.SendPacket(&packet.PlayerInfoRemove{UUIDs: uuids})
+		sesh.conn.SendPacket(&packet.DestroyEntities{EntityIds: eids})
 	}
 }
 

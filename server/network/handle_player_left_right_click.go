@@ -1,6 +1,9 @@
 package network
 
-import "github.com/aimjel/minecraft/packet"
+import (
+	"github.com/aimjel/minecraft/packet"
+	"github.com/aimjel/nitrate/server/world/entity"
+)
 
 func HandlePlayerLeftRightClick(s *Session, pk packet.Packet) {
 	switch p := pk.(type) {
@@ -18,7 +21,9 @@ func HandlePlayerLeftRightClick(s *Session, pk packet.Packet) {
 
 			//attack
 		case 1:
-
+			if a, ok := en.(entity.Attacker); ok {
+				a.Attack(s.state)
+			}
 		}
 	}
 

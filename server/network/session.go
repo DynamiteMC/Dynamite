@@ -29,6 +29,12 @@ var (
 	registry []byte
 )
 
+func addEntity(id int32, e entity.Entity) {
+	mu.Lock()
+	defer mu.Unlock()
+	entities[id] = e
+}
+
 type packetHandler func(c *Session, pk packet.Packet)
 
 // Session handles incoming and outgoing packets which controls the player state.
@@ -75,6 +81,7 @@ func NewSession(c *minecraft.Conn, p Player, b *Broadcast) *Session {
 
 func (s *Session) HandlePackets() error {
 	ticker := time.NewTicker(time.Second * 25)
+	addEntity(s.eid, s.state)
 	for {
 		select {
 		case <-ticker.C:
@@ -99,7 +106,7 @@ func (s *Session) HandlePackets() error {
 			case reflect.Pointer:
 				name = val.Elem().Type().Name()
 			}
-			fmt.Printf("no handle for %v %s\n", pk.ID(), name)
+			fmt.Printf("no handle for 0x%x %s\n", pk.ID(), name)
 		}
 	}
 }
@@ -224,4 +231,13 @@ func (s *Session) InView(x2, y2, z2 float64) bool {
 	distance := math.Sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2) + (z1-z2)*(z1-z2))
 
 	return float64(s.ViewDistance)*16 > distance
+}
+
+func (s *Session) Knockback(x, y, z int16) {
+	s.conn.SendPacket(&packet.SetEntityVelocity{
+		EntityID: s.eid,
+		X:        x,
+		Y:        y,
+		Z:        z,
+	})
 }
